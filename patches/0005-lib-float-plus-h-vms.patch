@@ -4,8 +4,23 @@ VSI C does not find a header whose name contains "+" (%CC-F-NOINCLFILEF
 for "float+.h").  tools/prepare.sh copies lib/float+.h to
 lib/float_plus.h; include it by that name on VMS.
 
---- a/lib/isnan.c	2026-10-04 13:07:13.165508596 +0100
-+++ b/lib/isnan.c	2026-10-04 13:07:13.168617851 +0100
+--- a/lib/integer_length.c	2026-10-04 14:02:18.470092573 +0100
++++ b/lib/integer_length.c	2026-10-04 14:02:18.470539832 +0100
+@@ -23,7 +23,11 @@
+ 
+ #include <limits.h>
+ 
+-#include "float+.h"
++#ifdef __VMS
++# include "float_plus.h"
++#else
++# include "float+.h"
++#endif
+ 
+ #if defined _MSC_VER && !(__clang_major__ >= 4)
+ # include <intrin.h>
+--- a/lib/isnan.c	2026-10-04 14:02:18.472752544 +0100
++++ b/lib/isnan.c	2026-10-04 14:02:18.473047563 +0100
 @@ -33,7 +33,11 @@
  #include <float.h>
  #include <string.h>
@@ -19,8 +34,8 @@ lib/float_plus.h; include it by that name on VMS.
  
  #ifdef USE_LONG_DOUBLE
  # define FUNC rpl_isnanl
---- a/lib/signbitd.c	2026-10-04 13:07:13.165891302 +0100
-+++ b/lib/signbitd.c	2026-10-04 13:07:13.168752325 +0100
+--- a/lib/signbitd.c	2026-10-04 14:02:18.474663852 +0100
++++ b/lib/signbitd.c	2026-10-04 14:02:18.474923301 +0100
 @@ -21,7 +21,11 @@
  
  #include <string.h>
@@ -34,8 +49,8 @@ lib/float_plus.h; include it by that name on VMS.
  
  #ifdef gl_signbitd_OPTIMIZED_MACRO
  # undef gl_signbitd
---- a/lib/signbitf.c	2026-10-04 13:07:13.166107756 +0100
-+++ b/lib/signbitf.c	2026-10-04 13:07:13.168864586 +0100
+--- a/lib/signbitf.c	2026-10-04 14:02:18.476388125 +0100
++++ b/lib/signbitf.c	2026-10-04 14:02:18.476626980 +0100
 @@ -21,7 +21,11 @@
  
  #include <string.h>
@@ -49,8 +64,8 @@ lib/float_plus.h; include it by that name on VMS.
  
  #ifdef gl_signbitf_OPTIMIZED_MACRO
  # undef gl_signbitf
---- a/lib/signbitl.c	2026-10-04 13:07:13.166393796 +0100
-+++ b/lib/signbitl.c	2026-10-04 13:07:13.168964097 +0100
+--- a/lib/signbitl.c	2026-10-04 14:02:18.478130555 +0100
++++ b/lib/signbitl.c	2026-10-04 14:02:18.478362139 +0100
 @@ -21,7 +21,11 @@
  
  #include <string.h>
@@ -64,8 +79,8 @@ lib/float_plus.h; include it by that name on VMS.
  
  #ifdef gl_signbitl_OPTIMIZED_MACRO
  # undef gl_signbitl
---- a/lib/vasnprintf.c	2026-10-04 13:07:13.166607470 +0100
-+++ b/lib/vasnprintf.c	2026-10-04 13:07:13.169666130 +0100
+--- a/lib/vasnprintf.c	2026-10-04 14:02:18.479811227 +0100
++++ b/lib/vasnprintf.c	2026-10-04 14:02:18.481745757 +0100
 @@ -105,7 +105,11 @@
  
  #if (NEED_PRINTF_DOUBLE || NEED_PRINTF_LONG_DOUBLE) && !defined IN_LIBINTL

@@ -1,0 +1,20 @@
+Subject: lib: on OpenVMS, include the generated scratch_buffer.gl.h as *_gl.h
+
+VSI C cannot #include a file whose name has two dots (on ODS-5 the file is
+scratch_buffer^.gl.h).  tools/prepare.sh renames the generated headers to
+*_gl.h; include it by that name on VMS.  (As in vms-sed and vms-m4.)
+
+--- a/lib/scratch_buffer.h	2026-10-04 14:02:18.484673066 +0100
++++ b/lib/scratch_buffer.h	2026-10-04 14:02:18.484982361 +0100
+@@ -122,6 +122,10 @@
+ # define _GL_UNLIKELY(cond) __builtin_expect ((cond), 0)
+ #endif
+ 
+-#include <malloc/scratch_buffer.gl.h>
++#ifdef __VMS
++# include <malloc/scratch_buffer_gl.h>
++#else
++# include <malloc/scratch_buffer.gl.h>
++#endif
+ 
+ #endif /* _GL_SCRATCH_BUFFER_H */

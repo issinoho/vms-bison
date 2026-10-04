@@ -115,7 +115,10 @@ while read -r pat; do
     lib_srcs=$(echo "$lib_srcs" | while read -r f; do
         case $(basename "$f") in $pat) ;; *) echo "$f" ;; esac; done)
 done < "$top/overlay/vms/lib-exclude.txt"
-src_srcs=$(printvar . src_bison_SOURCES | tr ' ' '\n' | grep '\.c$' | sed 's|^src/||' | sort -u)
+# Grammars are listed as .y; the release ships the generated .c (parse-gram.c).
+src_srcs=$(printvar . src_bison_SOURCES | tr ' ' '\n' | sed 's/\.y$/.c/' | grep '\.c$' |
+           sed 's|^src/||' | sort -u)
+for f in $src_srcs; do [ -f "$stage/src/$f" ] || die "no src/$f in the release"; done
 # Object names must be unique within each object directory (lib objects go to
 # their own, so lib/hash.c and src/hash.c can coexist).
 for list in "$lib_srcs" "$src_srcs"; do

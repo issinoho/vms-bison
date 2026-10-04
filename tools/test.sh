@@ -13,7 +13,10 @@ mkdir -p "$top/out"
 job=$top/cache/smoke-$node.com
 # bison runs the node's vms-m4 build (M4_TREE in upstream.conf).
 m4img="${WORKDIR%]}.$M4_TREE.BIN_"
-printf '$ set noon\n$ arch = f$edit(f$getsyi("ARCH_NAME"), "UPCASE")\n$ @%s.%s.VMS]TEST_SMOKE.COM %s'"''"'arch'"'"']M4.EXE\n' \
-    "${WORKDIR%]}" "$remote" "$m4img" > "$job"
+{ echo '$ set noon'
+  echo '$ arch = f$edit(f$getsyi("ARCH_NAME"), "UPCASE")'
+  echo "\$ m4img = \"$m4img\" + arch + \"]M4.EXE\""
+  echo "\$ @${WORKDIR%]}.$remote.VMS]TEST_SMOKE.COM 'm4img'"
+} > "$job"
 "$top/tools/vms.sh" "$node" run "$job" | grep -v '^$' | tee "$top/out/smoke-$node.log"
 grep -q 'SMOKE: [0-9]* passed, 0 failed' "$top/out/smoke-$node.log"

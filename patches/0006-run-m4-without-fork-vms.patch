@@ -14,8 +14,8 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 /BISON$ROOT/data (BISON$ROOT:[DATA], in Unix style because bison appends
 "/skeletons/..." to it).
 
---- a/src/files.c	2026-10-04 13:09:03.451844381 +0100
-+++ b/src/files.c	2026-10-04 13:09:03.452462769 +0100
+--- a/src/files.c	2026-10-04 14:09:42.724525778 +0100
++++ b/src/files.c	2026-10-04 14:09:42.742311435 +0100
 @@ -553,7 +553,13 @@
    else
      {
@@ -41,21 +41,24 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
  
    /* We don't use relocate2() to store the temporary buffer and re-use
       it, because m4path() is only called once.  */
---- a/src/output.c	2026-10-04 13:09:03.452058781 +0100
-+++ b/src/output.c	2026-10-04 13:09:38.662027542 +0100
-@@ -29,6 +29,11 @@
+--- a/src/output.c	2026-10-04 14:09:42.724748982 +0100
++++ b/src/output.c	2026-10-04 14:09:42.743079566 +0100
+@@ -29,6 +29,14 @@
  #include <spawn-pipe.h>
  #include <timevar.h>
  #include <wait-process.h>
 +#ifdef __VMS
++# include <descrip.h>
++# include <error.h>
 +# include <fcntl.h>
++# include <lib$routines.h>
 +# include <unistd.h>
 +# include <wait.h>
 +#endif
  
  #include "complain.h"
  #include "files.h"
-@@ -717,6 +722,80 @@
+@@ -717,6 +725,100 @@
  | Call the skeleton parser.  |
  `---------------------------*/
  
@@ -68,6 +71,21 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +   vfork() in the parent; the C RTL passes the arguments to the child as
 +   they are, so their case is kept.  *PIDP is unused (no pipes to wait
 +   on).  */
++/* Delete every version of NAME (the subprocess can leave a new version
++   of a file redirected to it).  */
++static void
++vms_delete_all (char const *name)
++{
++  char spec[80];
++  struct dsc$descriptor_s d;
++  snprintf (spec, sizeof spec, "%s;*", name);
++  d.dsc$w_length = (unsigned short) strlen (spec);
++  d.dsc$b_dtype = DSC$K_DTYPE_T;
++  d.dsc$b_class = DSC$K_CLASS_S;
++  d.dsc$a_pointer = spec;
++  lib$delete_file (&d, 0, 0, 0, 0, 0, 0, 0, 0, 0);
++}
++
 +static void
 +vms_run_m4 (char const *m4, char **argv, pid_t *pidp)
 +{
@@ -103,8 +121,10 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +  pid = vfork ();
 +  if (pid == 0)
 +    {
++      /* On VMS vfork() creates no process; execv() does, and if it fails
++         it returns here, in bison: report it rather than _exit().  */
 +      execv (m4, argv);
-+      _exit (127);
++      pid = -1;
 +    }
 +  dup2 (saved_in, 0);
 +  dup2 (saved_out, 1);
@@ -113,7 +133,12 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +  close (in_fd);
 +  xfclose (f);
 +  if (pid < 0)
-+    error (EXIT_FAILURE, get_errno (), _("%s subprocess failed"), "m4");
++    {
++      int err = get_errno ();
++      vms_delete_all (in_name);
++      vms_delete_all (out_name);
++      error (EXIT_FAILURE, err, _("cannot run %s"), m4);
++    }
 +  if (waitpid (pid, &status, 0) < 0)
 +    error (EXIT_FAILURE, get_errno (), _("%s subprocess failed"), "m4");
 +  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
@@ -126,17 +151,15 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +  aver (feof (f));
 +  xfclose (f);
 +  timevar_pop (tv_m4);
-+  while (remove (in_name) == 0)       /* every version */
-+    ;
-+  while (remove (out_name) == 0)
-+    ;
++  vms_delete_all (in_name);
++  vms_delete_all (out_name);
 +}
 +#endif
 +
  static void
  output_skeleton (void)
  {
-@@ -782,12 +861,20 @@
+@@ -782,12 +884,20 @@
          fputc ('\n', stderr);
        }
  
@@ -157,7 +180,7 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
    }
  
    free (skeldir);
-@@ -796,6 +883,7 @@
+@@ -796,6 +906,7 @@
    free (traceon);
    free (skel);
  
@@ -165,7 +188,7 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
    if (trace_flag & trace_muscles)
      muscles_output (stderr);
    {
-@@ -817,6 +905,7 @@
+@@ -817,6 +928,7 @@
    }
    wait_subprocess (pid, "m4", false, false, true, true, NULL);
    timevar_pop (tv_m4);

@@ -1,0 +1,58 @@
+Subject: print-xml: on OpenVMS, run xsltproc for --html without fork()
+
+print_html() runs xsltproc with gnulib's execute(), which needs fork()
+and its posix_spawn emulation; OpenVMS has neither.  Start it with vfork()
+and execv() instead, as output.c now runs m4; %define tool.xsltproc names
+the image.  Without one, --html reports that xsltproc failed, as when it
+is missing on Unix.
+
+--- a/src/print-xml.c	2026-10-04 14:04:25.804036196 +0100
++++ b/src/print-xml.c	2026-10-04 14:04:25.804387593 +0100
+@@ -29,7 +29,12 @@
+ #include "closure.h"
+ #include "complain.h"
+ #include "conflicts.h"
+-#include "execute.h"
++#ifdef __VMS
++# include <unistd.h>
++# include <wait.h>
++#else
++# include "execute.h"
++#endif
+ #include "files.h"
+ #include "getargs.h"
+ #include "gram.h"
+@@ -562,6 +567,25 @@
+       fputc ('\n', stderr);
+     }
+ 
++#ifdef __VMS
++  /* OpenVMS has no fork(), so no execute(); start xsltproc (named by
++     %define tool.xsltproc, as a VMS file specification) with vfork() and
++     execv(), as output.c runs m4.  */
++  int status = 127;
++  {
++    int wstatus;
++    pid_t pid = vfork ();
++    if (pid == 0)
++      {
++        /* On VMS vfork() creates no process; execv() does, and if it
++           fails it returns here, in bison.  */
++        execv (argv[0], (char **) argv);
++        pid = -1;
++      }
++    if (pid > 0 && waitpid (pid, &wstatus, 0) == pid)
++      status = WIFEXITED (wstatus) ? WEXITSTATUS (wstatus) : 127;
++  }
++#else
+   int status
+     = execute (argv[0],
+                argv[0], argv,
+@@ -570,6 +594,7 @@
+                /* null_stdin, null_stdout, null_stderr */ true, true, true,
+                /* slave_process */ true, /* exit_on_error */ false,
+                /* termsigp */ NULL);
++#endif
+   if (status)
+     complain (NULL, complaint, _("%s failed with status %d"), argv[0], status);
+   free (xsltproc);

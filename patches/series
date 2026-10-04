@@ -5,3 +5,5 @@
 0004-stdlib-vms-exit-severity.patch
 0005-lib-float-plus-h-vms.patch
 0006-run-m4-without-fork-vms.patch
+0007-lib-gl-h-names-vms.patch
+0008-html-xsltproc-without-fork-vms.patch
