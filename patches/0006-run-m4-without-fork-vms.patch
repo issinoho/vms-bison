@@ -3,19 +3,24 @@ Subject: src: on OpenVMS, run m4 without fork() and find m4 and the data files
 bison runs m4 through create_pipe_bidi(), which needs fork(); OpenVMS has
 none.  But bison writes all of m4's input before reading any of its
 output, so on VMS files do the work of the two pipes: the muscles go to a
-temporary file in SYS$SCRATCH that is m4's standard input, m4's standard
-output goes to another, and bison scans that once m4 has exited.  m4 is
-started with vfork() and execv(), standard input and output redirected
-around the vfork(); the C RTL passes the arguments as they are, so "-I"
-keeps its case.
+temporary file in SYS that is m4's standard input, m4's standard
+output goes to another, and bison scans that once m4 has exited.
+
+m4 runs in a subprocess (LIB, vms_spawn_image(), also used by
+print-xml.c) executing a small generated DCL procedure that drops the
+SYS and SYS it inherits and points its SYS/SYS
+at the temporary files.  A vfork()/execv() child (vms1) inherited a
+SYS redirected to a file and opened it again, leaving a new, empty
+version of the user's file.  The arguments are quoted, so DCL keeps their
+case ("-I"); m4's messages go to a temporary log copied to stderr.
 
 The defaults for the M4 and BISON_PKGDATADIR environment variables are
 the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 /BISON$ROOT/data (BISON$ROOT:[DATA], in Unix style because bison appends
 "/skeletons/..." to it).
 
---- a/src/files.c	2026-10-04 14:09:42.724525778 +0100
-+++ b/src/files.c	2026-10-04 14:09:42.742311435 +0100
+--- a/src/files.c	2026-10-04 23:39:05.251592287 +0100
++++ b/src/files.c	2026-10-04 23:39:05.256811600 +0100
 @@ -553,7 +553,13 @@
    else
      {
@@ -41,38 +46,27 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
  
    /* We don't use relocate2() to store the temporary buffer and re-use
       it, because m4path() is only called once.  */
---- a/src/output.c	2026-10-04 14:09:42.724748982 +0100
-+++ b/src/output.c	2026-10-04 14:09:42.743079566 +0100
-@@ -29,6 +29,14 @@
+--- a/src/output.c	2026-10-04 23:39:05.250022684 +0100
++++ b/src/output.c	2026-10-04 23:39:57.151559292 +0100
+@@ -29,6 +29,12 @@
  #include <spawn-pipe.h>
  #include <timevar.h>
  #include <wait-process.h>
 +#ifdef __VMS
 +# include <descrip.h>
 +# include <error.h>
-+# include <fcntl.h>
 +# include <lib$routines.h>
 +# include <unistd.h>
-+# include <wait.h>
 +#endif
  
  #include "complain.h"
  #include "files.h"
-@@ -717,6 +725,100 @@
+@@ -717,6 +723,171 @@
  | Call the skeleton parser.  |
  `---------------------------*/
  
 +#ifdef __VMS
-+/* Run M4 with ARGV on OpenVMS.  bison writes all of m4's input before it
-+   reads any output, so files do the work of the two pipes: the muscles go
-+   to a temporary file that is m4's standard input, m4's standard output
-+   goes to another, and bison then scans that.  The child is started with
-+   vfork() and execv(), with descriptors 0 and 1 redirected around the
-+   vfork() in the parent; the C RTL passes the arguments to the child as
-+   they are, so their case is kept.  *PIDP is unused (no pipes to wait
-+   on).  */
-+/* Delete every version of NAME (the subprocess can leave a new version
-+   of a file redirected to it).  */
++/* Delete every version of NAME.  */
 +static void
 +vms_delete_all (char const *name)
 +{
@@ -86,13 +80,119 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +  lib$delete_file (&d, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 +}
 +
++/* Run the image IMAGE with the arguments ARGV[1...] (ARGV ends with NULL)
++   on OpenVMS, its standard input and output being the files IN and OUT.
++   Return its exit code (0 for success), or -1 if it could not be run.
++
++   It runs in a subprocess (LIB$SPAWN) executing a small generated DCL
++   procedure, not with vfork()/execv(): a child created that way inherits
++   bison's SYS$OUTPUT, and when that is redirected to a file the child
++   opens it again, leaving a new, empty version of the user's file.  The
++   procedure drops the SYS$OUTPUT and SYS$ERROR it inherits, points its
++   own SYS$INPUT and SYS$OUTPUT at IN and OUT, and runs the image with
++   every argument quoted, so DCL keeps their case.  The subprocess's own
++   output (the image's messages) goes to a temporary log, copied to stderr
++   afterwards.  */
++int
++vms_spawn_image (char const *image, char const *const *argv,
++                 char const *in, char const *out)
++{
++  static unsigned int counter;
++  char com[80], log[80], spawncmd[96];
++  struct dsc$descriptor_s cmd_d, log_d;
++  unsigned int status, completion = 0;
++  char const *const *a;
++  FILE *c;
++  int rc;
++
++  ++counter;
++  snprintf (com, sizeof com, "SYS$SCRATCH:BISON_%08X_%u_COM.TMP",
++            (unsigned int) getpid (), counter);
++  snprintf (log, sizeof log, "SYS$SCRATCH:BISON_%08X_%u_LOG.TMP",
++            (unsigned int) getpid (), counter);
++  c = fopen (com, "w");
++  if (!c)
++    return -1;
++  fputs ("$ set noon\n"
++         "$ set message/nofacility/noseverity/noidentification/notext\n"
++         "$ if f$trnlnm(\"SYS$OUTPUT\",\"LNM$PROCESS\",,\"USER\") .nes. \"\""
++         " then deassign/user sys$output\n"
++         "$ if f$trnlnm(\"SYS$OUTPUT\",\"LNM$PROCESS\",,\"SUPERVISOR\") .nes. \"\""
++         " then deassign sys$output\n"
++         "$ if f$trnlnm(\"SYS$ERROR\",\"LNM$PROCESS\",,\"USER\") .nes. \"\""
++         " then deassign/user sys$error\n"
++         "$ if f$trnlnm(\"SYS$ERROR\",\"LNM$PROCESS\",,\"SUPERVISOR\") .nes. \"\""
++         " then deassign sys$error\n"
++         "$ set message/facility/severity/identification/text\n", c);
++  fprintf (c, "$ define/user sys$input %s\n", in);
++  fprintf (c, "$ define/user sys$output %s\n", out);
++  fprintf (c, "$ mcr %s", image);
++  /* One argument per line: DCL limits the length of a record.  */
++  for (a = argv + 1; *a; a++)
++    {
++      char const *p;
++      fputs (" -\n \"", c);
++      for (p = *a; *p; p++)
++        {
++          if (*p == '"')
++            putc ('"', c);      /* DCL doubles quotes */
++          putc (*p, c);
++        }
++      putc ('"', c);
++    }
++  fputs ("\n$ exit $status\n", c);
++  if (fclose (c) != 0)
++    {
++      vms_delete_all (com);
++      return -1;
++    }
++
++  snprintf (spawncmd, sizeof spawncmd, "@%s", com);
++  cmd_d.dsc$w_length = (unsigned short) strlen (spawncmd);
++  cmd_d.dsc$b_dtype = DSC$K_DTYPE_T;
++  cmd_d.dsc$b_class = DSC$K_CLASS_S;
++  cmd_d.dsc$a_pointer = spawncmd;
++  log_d.dsc$w_length = (unsigned short) strlen (log);
++  log_d.dsc$b_dtype = DSC$K_DTYPE_T;
++  log_d.dsc$b_class = DSC$K_CLASS_S;
++  log_d.dsc$a_pointer = log;
++  fflush (stdout);
++  fflush (stderr);
++  status = lib$spawn (&cmd_d, 0, &log_d, 0, 0, 0, &completion,
++                      0, 0, 0, 0, 0, 0);
++  vms_delete_all (com);
++  c = fopen (log, "r");
++  if (c)
++    {
++      int ch;
++      while ((ch = getc (c)) != EOF)
++        putc (ch, stderr);
++      fclose (c);
++    }
++  vms_delete_all (log);
++  if (!(status & 1))
++    return -1;
++  if (completion & 1)
++    return 0;
++  /* A C program's exit (N) is %X35A000 + N*8 + severity (see vms_exit);
++     anything else is a VMS condition: report it as 1.  */
++  rc = (completion & 0x7F8) >> 3;
++  if ((completion & 0x0FFFF800) != 0x0035A000 || rc == 0)
++    rc = 1;
++  return rc;
++}
++
++/* Run M4 with ARGV on OpenVMS.  bison writes all of m4's input before it
++   reads any output, so files do the work of the two pipes: the muscles go
++   to a temporary file that is m4's standard input, m4's standard output
++   goes to another, and bison then scans that.  *PIDP is unused (no pipes
++   to wait on).  */
 +static void
 +vms_run_m4 (char const *m4, char **argv, pid_t *pidp)
 +{
 +  static unsigned int counter;
 +  char in_name[64], out_name[64];
-+  int in_fd, out_fd, saved_in, saved_out, status = 0;
-+  pid_t pid;
++  int rc;
 +  FILE *f;
 +
 +  (void) pidp;
@@ -108,42 +208,16 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
 +    muscles_output (stderr);
 +
 +  timevar_push (tv_m4);
-+  f = xfopen (out_name, "w");
-+  in_fd = open (in_name, O_RDONLY);
-+  if (in_fd < 0)
-+    error (EXIT_FAILURE, get_errno (), "%s", in_name);
-+  out_fd = fileno (f);
-+  fflush (stdout);
-+  saved_in = dup (0);
-+  saved_out = dup (1);
-+  dup2 (in_fd, 0);
-+  dup2 (out_fd, 1);
-+  pid = vfork ();
-+  if (pid == 0)
++  rc = vms_spawn_image (m4, (char const *const *) argv, in_name, out_name);
++  if (rc != 0)
 +    {
-+      /* On VMS vfork() creates no process; execv() does, and if it fails
-+         it returns here, in bison: report it rather than _exit().  */
-+      execv (m4, argv);
-+      pid = -1;
-+    }
-+  dup2 (saved_in, 0);
-+  dup2 (saved_out, 1);
-+  close (saved_in);
-+  close (saved_out);
-+  close (in_fd);
-+  xfclose (f);
-+  if (pid < 0)
-+    {
-+      int err = get_errno ();
 +      vms_delete_all (in_name);
 +      vms_delete_all (out_name);
-+      error (EXIT_FAILURE, err, _("cannot run %s"), m4);
++      if (rc < 0)
++        error (EXIT_FAILURE, 0, _("cannot run %s"), m4);
++      error (EXIT_FAILURE, 0, _("%s subprocess failed with exit code %d"),
++             m4, rc);
 +    }
-+  if (waitpid (pid, &status, 0) < 0)
-+    error (EXIT_FAILURE, get_errno (), _("%s subprocess failed"), "m4");
-+  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
-+    error (EXIT_FAILURE, 0, _("%s subprocess failed with exit code %d"),
-+           m4, WIFEXITED (status) ? WEXITSTATUS (status) : -1);
 +
 +  f = xfopen (out_name, "r");
 +  scan_skel (f);
@@ -159,7 +233,7 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
  static void
  output_skeleton (void)
  {
-@@ -782,12 +884,20 @@
+@@ -782,12 +953,20 @@
          fputc ('\n', stderr);
        }
  
@@ -180,7 +254,7 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
    }
  
    free (skeldir);
-@@ -796,6 +906,7 @@
+@@ -796,6 +975,7 @@
    free (traceon);
    free (skel);
  
@@ -188,7 +262,7 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
    if (trace_flag & trace_muscles)
      muscles_output (stderr);
    {
-@@ -817,6 +928,7 @@
+@@ -817,6 +997,7 @@
    }
    wait_subprocess (pid, "m4", false, false, true, true, NULL);
    timevar_pop (tv_m4);
@@ -196,3 +270,17 @@ the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
  }
  
  static void
+--- a/src/output.h	2026-10-04 23:39:05.254160046 +0100
++++ b/src/output.h	2026-10-04 23:39:39.902888585 +0100
+@@ -24,4 +24,11 @@
+ /* Output the parsing tables and the parser code to FTABLE.  */
+ void output (void);
+ 
++# ifdef __VMS
++/* Run IMAGE with ARGV, standard input and output from and to the files IN
++   and OUT, in a subprocess; return its exit code, or -1.  */
++int vms_spawn_image (char const *image, char const *const *argv,
++                     char const *in, char const *out);
++# endif
++
+ #endif /* !OUTPUT_H_ */

@@ -48,6 +48,15 @@ $ sev = $severity
 $ name = "--defines writes calc.h"
 $ gosub check_success
 $!
+$! 2b. with SYS$OUTPUT redirected to a file, m4's subprocess leaves no new
+$!     (empty) version of that file
+$ define/user sys$output red.txt
+$ bison -o calc2.c calc.y
+$ sev = $severity
+$ if f$search("red.txt;-1") .nes. "" then sev = 2
+$ name = "redirected SYS$OUTPUT gets no extra version"
+$ gosub check_success
+$!
 $! 3. the generated parser compiles, links and works
 $ cc/nolist/object=calc.obj calc.c
 $ link/nomap/executable=calc.exe calc.obj

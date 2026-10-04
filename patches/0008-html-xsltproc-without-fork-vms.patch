@@ -1,54 +1,42 @@
-Subject: print-xml: on OpenVMS, run xsltproc for --html without fork()
+Subject: src/print-xml.c: on OpenVMS, run xsltproc without fork()
 
-print_html() runs xsltproc with gnulib's execute(), which needs fork()
-and its posix_spawn emulation; OpenVMS has neither.  Start it with vfork()
-and execv() instead, as output.c now runs m4; %define tool.xsltproc names
-the image.  Without one, --html reports that xsltproc failed, as when it
-is missing on Unix.
+--html runs xsltproc through gnulib's execute(), which needs fork() or
+its posix_spawn emulation; OpenVMS has neither.  Run it in a subprocess
+with vms_spawn_image() (patch 0006), as m4 is run, with no standard input
+or output; %define tool.xsltproc names the image as a VMS file
+specification.
 
---- a/src/print-xml.c	2026-10-04 14:04:25.804036196 +0100
-+++ b/src/print-xml.c	2026-10-04 14:04:25.804387593 +0100
-@@ -29,7 +29,12 @@
+--- a/src/print-xml.c	2026-10-04 23:39:05.255561986 +0100
++++ b/src/print-xml.c	2026-10-04 23:40:07.825568774 +0100
+@@ -29,7 +29,11 @@
  #include "closure.h"
  #include "complain.h"
  #include "conflicts.h"
 -#include "execute.h"
 +#ifdef __VMS
-+# include <unistd.h>
-+# include <wait.h>
++# include "output.h"
 +#else
 +# include "execute.h"
 +#endif
  #include "files.h"
  #include "getargs.h"
  #include "gram.h"
-@@ -562,6 +567,25 @@
+@@ -562,6 +566,14 @@
        fputc ('\n', stderr);
      }
  
 +#ifdef __VMS
-+  /* OpenVMS has no fork(), so no execute(); start xsltproc (named by
-+     %define tool.xsltproc, as a VMS file specification) with vfork() and
-+     execv(), as output.c runs m4.  */
-+  int status = 127;
-+  {
-+    int wstatus;
-+    pid_t pid = vfork ();
-+    if (pid == 0)
-+      {
-+        /* On VMS vfork() creates no process; execv() does, and if it
-+           fails it returns here, in bison.  */
-+        execv (argv[0], (char **) argv);
-+        pid = -1;
-+      }
-+    if (pid > 0 && waitpid (pid, &wstatus, 0) == pid)
-+      status = WIFEXITED (wstatus) ? WEXITSTATUS (wstatus) : 127;
-+  }
++  /* OpenVMS has no fork(), so no execute(); run xsltproc (named by
++     %define tool.xsltproc, as a VMS file specification) in a subprocess,
++     as output.c runs m4, with no standard input or output.  */
++  int status = vms_spawn_image (argv[0], argv, "NL:", "NL:");
++  if (status < 0)
++    status = 127;
 +#else
    int status
      = execute (argv[0],
                 argv[0], argv,
-@@ -570,6 +594,7 @@
+@@ -570,6 +582,7 @@
                 /* null_stdin, null_stdout, null_stderr */ true, true, true,
                 /* slave_process */ true, /* exit_on_error */ false,
                 /* termsigp */ NULL);

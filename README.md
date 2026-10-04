@@ -55,8 +55,9 @@ removes it.
 
 - **Running m4.** On Unix Bison talks to m4 through two pipes; OpenVMS has no `fork()`.
   Bison writes all of m4's input before reading any of its output, so here files do the
-  work: m4's input and output are temporary files in `SYS$SCRATCH`, and m4 is started with
-  `vfork()`/`execv()` (patch 0006). The M4 kit's `M4$ROOT:[BIN]M4.EXE` is the default; the
+  work: m4's input and output are temporary files in `SYS$SCRATCH`, and m4 runs in a
+  subprocess (`LIB$SPAWN`, patch 0006) whose inherited `SYS$OUTPUT` is dropped, so a
+  redirected `SYS$OUTPUT` is left alone. The M4 kit's `M4$ROOT:[BIN]M4.EXE` is the default; the
   `M4` logical name overrides it.
 - **Data files.** Bison's skeletons and m4 library are installed in `BISON$ROOT:[DATA...]`;
   the `BISON_PKGDATADIR` logical name overrides the location.
@@ -75,9 +76,9 @@ removes it.
 | 0003 | `lib/getprogname.c`: VMS implementation. |
 | 0004 | `lib/stdlib.in.h`: route `exit()` through `vms_exit()` for an error-severity status under DCL. |
 | 0005 | `lib/*.c`: include `float+.h` as `float_plus.h` (VSI C does not find a name with `+`). |
-| 0006 | `src/output.c`, `src/files.c`: run m4 without `fork()` (temporary files, `vfork()`/`execv()`); VMS defaults for the m4 image and the data directory. |
+| 0006 | `src/output.c`, `src/output.h`, `src/files.c`: run m4 without `fork()` (temporary files, a `LIB$SPAWN` subprocess); VMS defaults for the m4 image and the data directory. |
 | 0007 | `lib/scratch_buffer.h`: include the generated `scratch_buffer.gl.h` as `scratch_buffer_gl.h`. |
-| 0008 | `src/print-xml.c`: `--html` starts `xsltproc` (`%define tool.xsltproc`) with `vfork()`/`execv()`. |
+| 0008 | `src/print-xml.c`: `--html` runs `xsltproc` (`%define tool.xsltproc`) in a subprocess, as m4 is run. |
 
 0001-0005 and 0007 are the gnulib fixes of the m4, sed and Wget ports.
 

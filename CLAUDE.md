@@ -33,8 +33,10 @@ file covers the rules and the pitfalls.
 
 - **bison runs GNU m4 at run time** (github.com/issinoho/vms-m4; build it first on a fresh
   node, `M4_TREE` in `upstream.conf`). On VMS (patch 0006) it writes m4's input to a
-  temporary file in `SYS$SCRATCH`, starts m4 with `vfork()`/`execv()` with stdin/stdout
-  redirected to files around the `vfork()` (no `fork()`, no pipes), then scans m4's output.
+  temporary file in `SYS$SCRATCH`, runs m4 in a subprocess (`vms_spawn_image()`: `LIB$SPAWN`
+  of a generated DCL procedure that deassigns the inherited SYS$OUTPUT/SYS$ERROR, quoted
+  arguments), then scans m4's output. Not `vfork()`/`execv()` (vms1): that child inherits
+  a redirected SYS$OUTPUT and leaves an empty new version of the user's file.
   Defaults: `M4$ROOT:[BIN]M4.EXE` and `/BISON$ROOT/data`; the `M4` and `BISON_PKGDATADIR`
   logicals override them. `tools/test.sh` passes the node's m4 build to the smoke test,
   which points `BISON$ROOT` at the tree.
