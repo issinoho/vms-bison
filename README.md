@@ -20,15 +20,15 @@ every compile and link test sent to VSI C on the node, and MMS builds the result
 
 ## Status
 
-**In progress; no release yet.** The VSI C configure runs are under way on both nodes; the
-build, smoke test and PCSI kit follow.
+**Builds and passes its smoke test on both architectures; kits built, install check and
+release to come.**
 
 | | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
 |---|---|---|
-| VSI C configure answers | in progress | in progress |
-| Builds | pending | pending |
-| Smoke test (generate a parser, compile and run it, errors) | pending | pending |
-| PCSI kit (`BISON`, `V3.8-2E1`, requires `M4`) | pending | pending |
+| VSI C configure answers (identical on both) | yes | yes |
+| Builds | yes | yes |
+| Smoke test: generate a parser (Bison runs m4), compile and run it (`2+3*4` = 14), grammar error and missing m4 give error statuses | 7/7 | 7/7 |
+| PCSI kit (`BISON`, `V3.8-2E1`, requires `M4`) | `ISSINOHO-I64VMS-BISON-V0308-2E1-1.PCSI` | `ISSINOHO-X86VMS-BISON-V0308-2E1-1.PCSI` |
 
 ## On VMS
 
@@ -55,8 +55,10 @@ build, smoke test and PCSI kit follow.
 | 0004 | `lib/stdlib.in.h`: route `exit()` through `vms_exit()` for an error-severity status under DCL. |
 | 0005 | `lib/*.c`: include `float+.h` as `float_plus.h` (VSI C does not find a name with `+`). |
 | 0006 | `src/output.c`, `src/files.c`: run m4 without `fork()` (temporary files, `vfork()`/`execv()`); VMS defaults for the m4 image and the data directory. |
+| 0007 | `lib/scratch_buffer.h`: include the generated `scratch_buffer.gl.h` as `scratch_buffer_gl.h`. |
+| 0008 | `src/print-xml.c`: `--html` starts `xsltproc` (`%define tool.xsltproc`) with `vfork()`/`execv()`. |
 
-0001-0005 are the gnulib fixes of the m4, sed and Wget ports.
+0001-0005 and 0007 are the gnulib fixes of the m4, sed and Wget ports.
 
 ## How to build
 
