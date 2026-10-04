@@ -1,0 +1,21 @@
+Subject: configure: find struct sched_param in <pthread.h> on OpenVMS too
+
+gnulib's sched_h check looks for struct sched_param in <pthread.h> when
+$host_os is "vms", but a host triplet such as ia64-hp-openvms gives
+"openvms", so the check was skipped and lib/sched.h defined its own struct
+sched_param, which then clashed with <pthread.h> (%CC-E-REDEFSTRUCT).
+Match "openvms*" too.  (The text comes from gnulib's m4/sched_h.m4, where
+the same change belongs upstream; patching the m4 file here would make
+make(1) rerun the autotools.)
+
+--- a/configure	2026-10-04 10:14:32.569311597 +0100
++++ b/configure	2026-10-04 10:14:32.635312370 +0100
+@@ -31695,7 +31695,7 @@
+ fi
+ 
+         ;;
+-      vms)
++      vms | openvms*)
+                 ac_fn_c_check_type "$LINENO" "struct sched_param" "ac_cv_type_struct_sched_param" "#include <pthread.h>
+ "
+ if test "x$ac_cv_type_struct_sched_param" = xyes

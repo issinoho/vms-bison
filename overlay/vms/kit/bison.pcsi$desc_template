@@ -1,0 +1,36 @@
+--
+-- PCSI product description for GNU Bison on OpenVMS.
+-- Template: tools/prepare.sh substitutes @PRODUCER@, @BASE@ and @PCSIVERSION@,
+-- and @DATAFILES@ with the data directories and files (from data/).
+--
+product @PRODUCER@ @BASE@ BISON @PCSIVERSION@ full ;
+
+    -- bison runs GNU m4 (github.com/issinoho/vms-m4) to generate parsers.
+    software @PRODUCER@ @BASE@ M4 ;
+
+    information RELEASE_NOTES phase after ;
+
+    directory [BISON] ;
+    directory [BISON.BIN] ;
+    directory [BISON.DOC] ;
+    directory [BISON.DATA] ;
+@DATAFILES@
+    file [BISON.BIN]BISON.EXE ;
+    file [SYS$STARTUP]BISON$STARTUP.COM ;
+    file [BISON]BISON$SETUP.COM ;
+    file [BISON.DOC]README.VMS ;
+    file [BISON.DOC]COPYING. ;
+    file [BISON.DOC]NEWS. ;
+    file [BISON.DOC]BISON.TXT ;
+    file [BISON.DOC]BISON.1 ;
+    file [BISON.DOC]CALC.Y ;
+
+    -- Define BISON$ROOT now and print the post-installation tasks (PCSI shows
+    -- only the title of an information message unless /HELP is given).
+    execute postinstall "@PCSI$DESTINATION:[SYS$STARTUP]BISON$STARTUP.COM INSTALL" interactive ;
+    -- On removal, deassign BISON$ROOT.
+    execute install "CONTINUE" remove "@PCSI$DESTINATION:[SYS$STARTUP]BISON$STARTUP.COM REMOVE" ;
+
+    information POST_INSTALL phase after ;
+
+end product ;

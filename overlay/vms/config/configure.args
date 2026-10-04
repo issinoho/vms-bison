@@ -1,0 +1,12 @@
+# Options for configure (one per line); both the VSI C run (vms_configure.sh)
+# and the host run in prepare.sh use them.
+# No message catalogues on VMS.
+--disable-nls
+# Single-threaded, as in the sibling ports (no gnulib thread layer).
+--disable-threads
+--disable-dependency-tracking
+# No yacc shell wrapper or -ly library (no POSIX shell on a bare VMS system).
+--disable-yacc
+# No libreadline or libtextstyle on VMS (examples and colours only).
+--without-libreadline-prefix
+--without-libtextstyle-prefix

@@ -1,0 +1,81 @@
+Subject: lib: on OpenVMS, include float+.h as float_plus.h
+
+VSI C does not find a header whose name contains "+" (%CC-F-NOINCLFILEF
+for "float+.h").  tools/prepare.sh copies lib/float+.h to
+lib/float_plus.h; include it by that name on VMS.
+
+--- a/lib/isnan.c	2026-10-04 13:07:13.165508596 +0100
++++ b/lib/isnan.c	2026-10-04 13:07:13.168617851 +0100
+@@ -33,7 +33,11 @@
+ #include <float.h>
+ #include <string.h>
+ 
+-#include "float+.h"
++#ifdef __VMS
++# include "float_plus.h"
++#else
++# include "float+.h"
++#endif
+ 
+ #ifdef USE_LONG_DOUBLE
+ # define FUNC rpl_isnanl
+--- a/lib/signbitd.c	2026-10-04 13:07:13.165891302 +0100
++++ b/lib/signbitd.c	2026-10-04 13:07:13.168752325 +0100
+@@ -21,7 +21,11 @@
+ 
+ #include <string.h>
+ #include "isnand-nolibm.h"
+-#include "float+.h"
++#ifdef __VMS
++# include "float_plus.h"
++#else
++# include "float+.h"
++#endif
+ 
+ #ifdef gl_signbitd_OPTIMIZED_MACRO
+ # undef gl_signbitd
+--- a/lib/signbitf.c	2026-10-04 13:07:13.166107756 +0100
++++ b/lib/signbitf.c	2026-10-04 13:07:13.168864586 +0100
+@@ -21,7 +21,11 @@
+ 
+ #include <string.h>
+ #include "isnanf-nolibm.h"
+-#include "float+.h"
++#ifdef __VMS
++# include "float_plus.h"
++#else
++# include "float+.h"
++#endif
+ 
+ #ifdef gl_signbitf_OPTIMIZED_MACRO
+ # undef gl_signbitf
+--- a/lib/signbitl.c	2026-10-04 13:07:13.166393796 +0100
++++ b/lib/signbitl.c	2026-10-04 13:07:13.168964097 +0100
+@@ -21,7 +21,11 @@
+ 
+ #include <string.h>
+ #include "isnanl-nolibm.h"
+-#include "float+.h"
++#ifdef __VMS
++# include "float_plus.h"
++#else
++# include "float+.h"
++#endif
+ 
+ #ifdef gl_signbitl_OPTIMIZED_MACRO
+ # undef gl_signbitl
+--- a/lib/vasnprintf.c	2026-10-04 13:07:13.166607470 +0100
++++ b/lib/vasnprintf.c	2026-10-04 13:07:13.169666130 +0100
+@@ -105,7 +105,11 @@
+ 
+ #if (NEED_PRINTF_DOUBLE || NEED_PRINTF_LONG_DOUBLE) && !defined IN_LIBINTL
+ # include <math.h>
+-# include "float+.h"
++# ifdef __VMS
++#  include "float_plus.h"
++# else
++#  include "float+.h"
++# endif
+ #endif
+ 
+ #if (NEED_PRINTF_DOUBLE || NEED_PRINTF_INFINITE_DOUBLE) && !defined IN_LIBINTL

@@ -1,0 +1,175 @@
+Subject: src: on OpenVMS, run m4 without fork() and find m4 and the data files
+
+bison runs m4 through create_pipe_bidi(), which needs fork(); OpenVMS has
+none.  But bison writes all of m4's input before reading any of its
+output, so on VMS files do the work of the two pipes: the muscles go to a
+temporary file in SYS$SCRATCH that is m4's standard input, m4's standard
+output goes to another, and bison scans that once m4 has exited.  m4 is
+started with vfork() and execv(), standard input and output redirected
+around the vfork(); the C RTL passes the arguments as they are, so "-I"
+keeps its case.
+
+The defaults for the M4 and BISON_PKGDATADIR environment variables are
+the kits' locations: M4$ROOT:[BIN]M4.EXE (github.com/issinoho/vms-m4) and
+/BISON$ROOT/data (BISON$ROOT:[DATA], in Unix style because bison appends
+"/skeletons/..." to it).
+
+--- a/src/files.c	2026-10-04 13:09:03.451844381 +0100
++++ b/src/files.c	2026-10-04 13:09:03.452462769 +0100
+@@ -553,7 +553,13 @@
+   else
+     {
+       char const *cp = getenv ("BISON_PKGDATADIR");
++#ifdef __VMS
++      /* The kit installs the data files in BISON$ROOT:[DATA]; bison
++         appends "/skeletons/..." to this, so give it in Unix style.  */
++      return cp ? cp : "/BISON$ROOT/data";
++#else
+       return cp ? cp : relocate2 (PKGDATADIR, &relocate_buffer);
++#endif
+     }
+ }
+ 
+@@ -563,6 +569,10 @@
+   char const *m4 = getenv ("M4");
+   if (m4)
+     return m4;
++#ifdef __VMS
++  /* GNU m4 for OpenVMS (github.com/issinoho/vms-m4), the M4 kit.  */
++  return "M4$ROOT:[BIN]M4.EXE";
++#endif
+ 
+   /* We don't use relocate2() to store the temporary buffer and re-use
+      it, because m4path() is only called once.  */
+--- a/src/output.c	2026-10-04 13:09:03.452058781 +0100
++++ b/src/output.c	2026-10-04 13:09:38.662027542 +0100
+@@ -29,6 +29,11 @@
+ #include <spawn-pipe.h>
+ #include <timevar.h>
+ #include <wait-process.h>
++#ifdef __VMS
++# include <fcntl.h>
++# include <unistd.h>
++# include <wait.h>
++#endif
+ 
+ #include "complain.h"
+ #include "files.h"
+@@ -717,6 +722,80 @@
+ | Call the skeleton parser.  |
+ `---------------------------*/
+ 
++#ifdef __VMS
++/* Run M4 with ARGV on OpenVMS.  bison writes all of m4's input before it
++   reads any output, so files do the work of the two pipes: the muscles go
++   to a temporary file that is m4's standard input, m4's standard output
++   goes to another, and bison then scans that.  The child is started with
++   vfork() and execv(), with descriptors 0 and 1 redirected around the
++   vfork() in the parent; the C RTL passes the arguments to the child as
++   they are, so their case is kept.  *PIDP is unused (no pipes to wait
++   on).  */
++static void
++vms_run_m4 (char const *m4, char **argv, pid_t *pidp)
++{
++  static unsigned int counter;
++  char in_name[64], out_name[64];
++  int in_fd, out_fd, saved_in, saved_out, status = 0;
++  pid_t pid;
++  FILE *f;
++
++  (void) pidp;
++  snprintf (in_name, sizeof in_name, "SYS$SCRATCH:BISON_%08X_%u_IN.TMP",
++            (unsigned int) getpid (), ++counter);
++  snprintf (out_name, sizeof out_name, "SYS$SCRATCH:BISON_%08X_%u_OUT.TMP",
++            (unsigned int) getpid (), counter);
++
++  f = xfopen (in_name, "w");
++  muscles_output (f);
++  xfclose (f);
++  if (trace_flag & trace_muscles)
++    muscles_output (stderr);
++
++  timevar_push (tv_m4);
++  f = xfopen (out_name, "w");
++  in_fd = open (in_name, O_RDONLY);
++  if (in_fd < 0)
++    error (EXIT_FAILURE, get_errno (), "%s", in_name);
++  out_fd = fileno (f);
++  fflush (stdout);
++  saved_in = dup (0);
++  saved_out = dup (1);
++  dup2 (in_fd, 0);
++  dup2 (out_fd, 1);
++  pid = vfork ();
++  if (pid == 0)
++    {
++      execv (m4, argv);
++      _exit (127);
++    }
++  dup2 (saved_in, 0);
++  dup2 (saved_out, 1);
++  close (saved_in);
++  close (saved_out);
++  close (in_fd);
++  xfclose (f);
++  if (pid < 0)
++    error (EXIT_FAILURE, get_errno (), _("%s subprocess failed"), "m4");
++  if (waitpid (pid, &status, 0) < 0)
++    error (EXIT_FAILURE, get_errno (), _("%s subprocess failed"), "m4");
++  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
++    error (EXIT_FAILURE, 0, _("%s subprocess failed with exit code %d"),
++           m4, WIFEXITED (status) ? WEXITSTATUS (status) : -1);
++
++  f = xfopen (out_name, "r");
++  scan_skel (f);
++  /* scan_skel should have read all of M4's output.  */
++  aver (feof (f));
++  xfclose (f);
++  timevar_pop (tv_m4);
++  while (remove (in_name) == 0)       /* every version */
++    ;
++  while (remove (out_name) == 0)
++    ;
++}
++#endif
++
+ static void
+ output_skeleton (void)
+ {
+@@ -782,12 +861,20 @@
+         fputc ('\n', stderr);
+       }
+ 
++#ifdef __VMS
++    /* OpenVMS has no fork(), so no create_pipe_bidi(): write m4's input,
++       run it and scan its output here (see vms_run_m4).  */
++    (void) filter_fd;
++    pid = 0;
++    vms_run_m4 (m4, (char **) argv, &pid);
++#else
+     pid = create_pipe_bidi ("m4", m4, argv,
+                             /* directory */ NULL,
+                             /* null_stderr */ false,
+                             /* slave_process */ true,
+                             /* exit_on_error */ true,
+                             filter_fd);
++#endif
+   }
+ 
+   free (skeldir);
+@@ -796,6 +883,7 @@
+   free (traceon);
+   free (skel);
+ 
++#ifndef __VMS
+   if (trace_flag & trace_muscles)
+     muscles_output (stderr);
+   {
+@@ -817,6 +905,7 @@
+   }
+   wait_subprocess (pid, "m4", false, false, true, true, NULL);
+   timevar_pop (tv_m4);
++#endif
+ }
+ 
+ static void

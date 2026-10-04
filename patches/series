@@ -1,0 +1,7 @@
+# Ordered list of patches applied to the upstream tree (one per line).
+0001-scratch-buffer-align-keyword-vms.patch
+0002-configure-sched-param-openvms.patch
+0003-getprogname-vms.patch
+0004-stdlib-vms-exit-severity.patch
+0005-lib-float-plus-h-vms.patch
+0006-run-m4-without-fork-vms.patch
