@@ -20,15 +20,15 @@ every compile and link test sent to VSI C on the node, and MMS builds the result
 
 ## Status
 
-**Released: [v3.8.2-vms1](https://github.com/issinoho/vms-bison/releases/tag/v3.8.2-vms1).**
+**Released: [v3.8.2-vms2](https://github.com/issinoho/vms-bison/releases/tag/v3.8.2-vms2).**
 
 | | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
 |---|---|---|
 | VSI C configure answers (identical on both) | yes | yes |
 | Builds | yes | yes |
-| Smoke test: generate a parser (Bison runs m4), compile and run it (`2+3*4` = 14), grammar error and missing m4 give error statuses | 7/7 | 7/7 |
+| Smoke test: generate a parser (Bison runs m4), compile and run it (`2+3*4` = 14), a redirected `SYS$OUTPUT` gets no extra version, grammar error and missing m4 give error statuses | 8/8 | 8/8 |
 | Kit install (with the M4 kit), generate and run a parser from the kit, remove | clean | clean |
-| PCSI kit (`BISON`, `V3.8-2E1`, requires `M4`) | `ISSINOHO-I64VMS-BISON-V0308-2E1-1.PCSI` | `ISSINOHO-X86VMS-BISON-V0308-2E1-1.PCSI` |
+| PCSI kit (`BISON`, `V3.8-2E2`, requires `M4`) | `ISSINOHO-I64VMS-BISON-V0308-2E2-1.PCSI` | `ISSINOHO-X86VMS-BISON-V0308-2E2-1.PCSI` |
 
 ## Installing the kit
 
@@ -39,7 +39,7 @@ the release's `SHA256SUMS`. A kit downloaded through a non-VMS system loses its 
 format, so restore that first, then install it:
 
 ```
-$ SET FILE/ATTRIBUTE=(RFM:FIX,LRL:8192,MRS:8192,RAT:NONE) ISSINOHO-*-BISON-V0308-2E1-1.PCSI
+$ SET FILE/ATTRIBUTE=(RFM:FIX,LRL:8192,MRS:8192,RAT:NONE) ISSINOHO-*-BISON-V0308-2E2-1.PCSI
 $ PRODUCT INSTALL BISON /PRODUCER=ISSINOHO /SOURCE=dev:[dir]
 $ @BISON$ROOT:[000000]BISON$SETUP.COM
 $ bison --defines -o calc.c BISON$ROOT:[DOC]CALC.Y
@@ -117,7 +117,8 @@ The family of ports, all for IA64 and x86-64, each following its upstream releas
 | curl — [vms-curl](https://github.com/issinoho/vms-curl) | [v8.22.0-vms1](https://github.com/issinoho/vms-curl/releases/tag/v8.22.0-vms1) | alongside VSI's curl kit, following curl's own releases |
 | GNU Wget — [vms-wget](https://github.com/issinoho/vms-wget) | [v1.25.0-vms2](https://github.com/issinoho/vms-wget/releases/tag/v1.25.0-vms2) | the web retriever |
 | GNU m4 — [vms-m4](https://github.com/issinoho/vms-m4) | [v1.4.21-vms1](https://github.com/issinoho/vms-m4/releases/tag/v1.4.21-vms1) | the macro processor |
-| **GNU Bison** (this port) — [vms-bison](https://github.com/issinoho/vms-bison) | [v3.8.2-vms1](https://github.com/issinoho/vms-bison/releases/tag/v3.8.2-vms1) | runs GNU m4 |
+| **GNU Bison** (this port) — [vms-bison](https://github.com/issinoho/vms-bison) | [v3.8.2-vms2](https://github.com/issinoho/vms-bison/releases/tag/v3.8.2-vms2) | runs GNU m4 |
+| flex — [vms-flex](https://github.com/issinoho/vms-flex) | [v2.6.4-vms1](https://github.com/issinoho/vms-flex/releases/tag/v2.6.4-vms1) | the scanner generator; runs GNU m4 |
 
 ## Artwork
 
