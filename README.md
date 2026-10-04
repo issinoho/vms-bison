@@ -20,15 +20,36 @@ every compile and link test sent to VSI C on the node, and MMS builds the result
 
 ## Status
 
-**Builds and passes its smoke test on both architectures; kits built, install check and
-release to come.**
+**Released: [v3.8.2-vms1](https://github.com/issinoho/vms-bison/releases/tag/v3.8.2-vms1).**
 
 | | IA64 (OpenVMS V8.4-2L3, VSI C 7.4) | x86-64 (OpenVMS E9.2-4, VSI C 7.7) |
 |---|---|---|
 | VSI C configure answers (identical on both) | yes | yes |
 | Builds | yes | yes |
 | Smoke test: generate a parser (Bison runs m4), compile and run it (`2+3*4` = 14), grammar error and missing m4 give error statuses | 7/7 | 7/7 |
+| Kit install (with the M4 kit), generate and run a parser from the kit, remove | clean | clean |
 | PCSI kit (`BISON`, `V3.8-2E1`, requires `M4`) | `ISSINOHO-I64VMS-BISON-V0308-2E1-1.PCSI` | `ISSINOHO-X86VMS-BISON-V0308-2E1-1.PCSI` |
+
+## Installing the kit
+
+Install the [M4 kit](https://github.com/issinoho/vms-m4/releases/latest) first. Download
+the Bison kit for your architecture from the
+[latest release](https://github.com/issinoho/vms-bison/releases/latest) and check it against
+the release's `SHA256SUMS`. A kit downloaded through a non-VMS system loses its record
+format, so restore that first, then install it:
+
+```
+$ SET FILE/ATTRIBUTE=(RFM:FIX,LRL:8192,MRS:8192,RAT:NONE) ISSINOHO-*-BISON-V0308-2E1-1.PCSI
+$ PRODUCT INSTALL BISON /PRODUCER=ISSINOHO /SOURCE=dev:[dir]
+$ @BISON$ROOT:[000000]BISON$SETUP.COM
+$ bison --defines -o calc.c BISON$ROOT:[DOC]CALC.Y
+```
+
+It installs `[BISON.BIN]BISON.EXE`, the skeletons in `[BISON.DATA...]`, `BISON$SETUP.COM`
+(defines the `bison` command), the manual and an example grammar in `[BISON.DOC]`, and
+`SYS$STARTUP:BISON$STARTUP.COM`, which defines `BISON$ROOT` (add it to
+`SYS$MANAGER:SYSTARTUP_VMS.COM` after the line for `M4$STARTUP.COM`). `PRODUCT REMOVE BISON`
+removes it.
 
 ## On VMS
 
