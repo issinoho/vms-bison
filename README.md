@@ -4,14 +4,17 @@
 
 # GNU Bison for OpenVMS
 
-[GNU Bison](https://www.gnu.org/software/bison/) (**3.8.2**), the parser generator, built
-natively for OpenVMS on **IA64** and **x86-64**, following Bison's own releases. Bison runs
-GNU m4 to generate its parsers; it uses [GNU m4 for OpenVMS](https://github.com/issinoho/vms-m4).
-It belongs to the same family as [GNU grep](https://github.com/issinoho/vms-grep),
+[GNU Bison](https://www.gnu.org/software/bison/) (**3.8.2**), the parser generator, built natively
+for OpenVMS on **IA64** and **x86-64**, following Bison's own releases. Bison runs GNU m4 to
+generate its parsers; it uses [GNU m4 for OpenVMS](https://github.com/issinoho/vms-m4). It belongs
+to the same family as [GNU grep](https://github.com/issinoho/vms-grep),
 [GNU sed](https://github.com/issinoho/vms-sed), [GNU awk](https://github.com/issinoho/vms-awk),
-[GNU Wget](https://github.com/issinoho/vms-wget), [curl](https://github.com/issinoho/vms-curl),
-[zlib](https://github.com/issinoho/vms-zlib) and [PCRE2](https://github.com/issinoho/vms-pcre2)
-for OpenVMS.
+[GNU make](https://github.com/issinoho/vms-make),
+[GNU diffutils](https://github.com/issinoho/vms-diffutils),
+[GNU patch](https://github.com/issinoho/vms-patch), [GNU m4](https://github.com/issinoho/vms-m4),
+[flex](https://github.com/issinoho/vms-flex), [GNU Wget](https://github.com/issinoho/vms-wget),
+[curl](https://github.com/issinoho/vms-curl), [PCRE2](https://github.com/issinoho/vms-pcre2) and
+[zlib](https://github.com/issinoho/vms-zlib) for OpenVMS.
 
 This repository holds **only our changes**: every build starts from the signed GNU release
 tarball (Akim Demaille's key, pinned in `keys/`), applies our patches and adds our VMS
