@@ -4,6 +4,8 @@
 
 # GNU Bison for OpenVMS
 
+[![Downloads](https://img.shields.io/github/downloads/issinoho/vms-bison/total?label=downloads)](https://github.com/issinoho/vms-bison/releases)
+
 [GNU Bison](https://www.gnu.org/software/bison/) (**3.8.2**), the parser generator, built natively
 for OpenVMS on **IA64** and **x86-64**, following Bison's own releases. Bison runs GNU m4 to
 generate its parsers; it uses [GNU m4 for OpenVMS](https://github.com/issinoho/vms-m4). It belongs
