@@ -159,7 +159,7 @@ datafiles=$( (cd "$stage/data" && find . -mindepth 1 -type d | sort |
                  stem=$(echo "$stem" | sed 's/[+.]/^&/g')
                  echo "    file [$dir]$stem.$ext ;"
              done) )
-for base in I64VMS X86VMS; do
+for base in I64VMS X86VMS AXPVMS; do
     subst $base "" < "$kit/bison.pcsi\$desc_template" |
         awk -v d="$datafiles" '{ if ($0 == "@DATAFILES@") print d; else print }' > "$kit/BISON-$base.PCSI\$DESC"
     subst $base "" < "$kit/bison.pcsi\$text_template" > "$kit/BISON-$base.PCSI\$TEXT"
